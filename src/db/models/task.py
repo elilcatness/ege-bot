@@ -10,6 +10,8 @@ class Task(SqlAlchemyBase):
     id = Column(Integer, primary_key=True, unique=True)
     number = Column(Integer)
     description = Column(String)
+    answer = Column(String)
+    images = Column(String, nullable=True)
     users = relationship('User', secondary='task_to_user')
 
     def __str__(self):
