@@ -1,4 +1,4 @@
-from src.utils import get_doc, get_json, process_files_links, extract_images_from_text
+from src.utils import get_doc, get_json
 from src.templates import *
 
 
@@ -7,14 +7,9 @@ def _find_categories(number: int):
     return [cat['id'] for cat in data]
 
 
-def _process_description(desc: str):
-    desc = '\''.join(desc.split('changeImageFilePath(\'')[-1].split('\'')[:-1])
-    for key, val in [('<sup>', '^'), ('</sup>', ''), ('<sub>', '_'), ('</sub>', ''),
-                     ('&nbsp;', ' '), ('&times;', '×'), ('<br/>', '\n'), ('&not;', '¬'),
-                     ('&and;', '⋀'), ('&or;', '⋁'), ('&ndash;', '–'), ('  ', '')]:
-        desc = desc.replace(key, val)
-    desc = process_files_links(desc)
-    return extract_images_from_text(desc)
+def _strip_description(desc: str):
+    return '\''.join(desc.split('changeImageFilePath(\'')[-1].split('\'')[:-1]
+                     ).replace('<sup>', '^').replace('</sup>', '').replace('&nbsp;', ' ').replace('&times;', '×')
 
 
 def _strip_answer(desc: str):
@@ -42,12 +37,10 @@ def _parse_tasks_page(doc, number: int = None):
     answers = doc.xpath('//td[@class="answer"]/div')
     output = []
     for desc, answer in zip(descriptions, answers):
-        desc, images = _process_description(desc.text_content())
+        desc = _strip_description(desc.text_content())
         task_id = answer.get('id')
         answer = _strip_answer(answer.text_content())
-        output.append({'id': task_id, 'number': number, 'description': desc, 'answer': answer} if not images else
-                      {'id': task_id, 'number': number, 'description': desc, 'answer': answer,
-                       'images': ';'.join(images)})
+        output.append({'id': task_id, 'number': number, 'description': desc, 'answer': answer})
     return output
 
 
@@ -62,12 +55,3 @@ def get_tasks_by_number(number: int):
     suffix = '&' + '&'.join([f'cat{cat_id}=on' for cat_id in categories])
     doc = get_doc(ALL_TEMPLATE % number + suffix)
     return _parse_tasks_page(doc, number)
-
-
-def main():
-    task = get_task_by_id(4282)
-    print(task['description'])
-
-
-if __name__ == '__main__':
-    main()
