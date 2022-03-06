@@ -35,8 +35,6 @@ def load_data(_):
 
 
 def load_states(updater: Updater, conv_handler: ConversationHandler):
-    # context = CallbackContext(updater.dispatcher)
-    # context.job_queue.run_once(load_data, 0)
     with db_session.create_session() as session:
         for state in session.query(State).all():
             conv_handler._conversations[(

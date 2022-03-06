@@ -8,6 +8,8 @@ from src.utils import delete_last_message
 def menu(update: Update, context: CallbackContext):
     if not context.user_data.get('id'):
         context.user_data['id'] = update.message.from_user.id
+    for key, val in [('queue', []), ('show_answer', False)]:
+        context.user_data[key] = val
     if context.user_data.get('queue'):
         context.user_data['queue'] = []
     markup = InlineKeyboardMarkup([[InlineKeyboardButton('Найти задание по ID', callback_data='search')],

@@ -15,30 +15,30 @@ def show_task(update: Update, context: CallbackContext):
         task_id = context.user_data['queue'][0]
         task = session.query(Task).get(task_id)
         if not task:
-            update.message.reply_text(f'Не удалось найти задачу №{task_id}')
+            context.bot.send_message(context.user_data['id'], f'Не удалось найти задачу №{task_id}')
             return menu(update, context)
         user_attempts = [att for att in task.attempts if att.user_id == context.user_data['id']]
         buttons = [[InlineKeyboardButton('Вернуться в меню', callback_data='menu')]]
         if len(context.user_data['queue']) > 1:
             buttons[0].append(InlineKeyboardButton('Пропустить задачу', callback_data='skip_task'))
+        print(f'{user_attempts=}')
         if user_attempts:
             while len(user_attempts) > 1:
                 attempt = user_attempts.pop(0)
                 session.delete(attempt)
                 session.commit()
             attempt = user_attempts[0]
-            if attempt.correct:
-                task_prefix = '✅'
-                task_suffix = f'\n\n<b>Ответ:</b> {attempt.answer}' if context.user_data.get('show_answer') else ''
-            else:
-                task_prefix = '❌'
-                task_suffix = f'\n\n<b>Последний ответ:</b> {attempt.answer}'
-                if context.user_data.get('show_answer'):
-                    task_suffix += f'\n<b>Правильный ответ:</b> {task.answer}'
+            attempt_answer = '\n' + attempt.answer if len(attempt.answer.split('\n')) > 1 else attempt.answer
+            task_answer = '\n' + task.answer if len(task.answer.split('\n')) > 1 else task.answer
             if context.user_data.get('show_answer'):
                 answer_btn_text, callback_data = 'Скрыть правильный ответ', 'hide_answer'
+                task_prefix, task_suffix = (('✅', f'\n\n<b>Ответ:</b> {attempt_answer}') if attempt.correct else
+                                            ('❌', f'\n\n<b>Последний ответ:</b> {attempt_answer}'
+                                             f'\n<b>Правильный ответ: </b> {task_answer}'))
             else:
                 answer_btn_text, callback_data = 'Показать правильный ответ', 'show_answer'
+                task_prefix, task_suffix = (('✅', '') if attempt.correct else
+                                            ('❌', f'\n\n<b>Последний ответ:</b> {attempt_answer}'))
             buttons.append([InlineKeyboardButton(answer_btn_text, callback_data=callback_data)])
         else:
             task_prefix, task_suffix = '', ''
@@ -70,21 +70,16 @@ def show_task(update: Update, context: CallbackContext):
 def check_answer(update: Update, context: CallbackContext):
     answer = update.message.text.strip()
     with db_session.create_session() as session:
-        task = session.query(Task).get(context.user_data['task_id'])
+        task_id = context.user_data['queue'][0]
+        task = session.query(Task).get(task_id)
         if not task:
-            update.message.reply_text(f'Не удалось проверить ответ на задачу №{context.user_data["task_id"]}')
+            context.bot.send_message(context.user_data['id'], f'Не удалось проверить ответ на задачу №{task_id}')
             return menu(update, context)
         attempt = Attempt(answer=answer, task_id=task.id, user_id=context.user_data['id'],
                           correct=answer == task.answer)
         session.add(attempt)
         session.commit()
-        clean_messages(context)
-        # if attempt.correct:
-        #     context.user_data['task_prefix'] = '✅'
-        #     context.user_data['task_suffix'] = f'\n\n<b>Ответ:</b> {answer}'
-        # else:
-        #     context.user_data['task_prefix'] = '❌'
-        #     context.user_data['task_suffix'] = f'\n\n<b>Последний ответ:</b> {answer}'
+    clean_messages(context)
     return show_task(update, context)
 
 
