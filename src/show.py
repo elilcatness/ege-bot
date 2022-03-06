@@ -5,38 +5,64 @@ from src.db import db_session
 from src.db.models.attempt import Attempt
 from src.db.models.task import Task
 from src.general import menu
-from src.parse import get_task_by_id
 from src.utils import delete_last_message, clean_messages
 
 
 @delete_last_message
 def show_task(update: Update, context: CallbackContext):
     callback = 'show_task'
-    context.user_data['one_task'] = True
-    task = get_task_by_id(context.user_data['queue'][0])
-    if not task:
-        update.message.reply_text(f'Не удалось найти задачу №{context.user_data["task_id"]}')
-        return menu(update, context)
-    text = (f"<b>Задание {task['number'] if task['number'] != 999 else 'прошлых лет'} "
-            f"№{task['id']}</b>\n{task['description']}")
-    buttons = [[InlineKeyboardButton('Вернуться в меню', callback_data='menu')],
-               [InlineKeyboardButton('Пропустить задачу', callback_data='skip_task')]]
-    # to be continued
-    if not context.user_data.get('delete_on_reload'):
-        context.user_data['delete_on_reload'] = []
-    if 'images' in task:
-        images = task['images'].split(';')
-        if len(images) == 1:
-            context.user_data['delete_on_reload'].append(
-                update.message.reply_photo(images[0], text, reply_markup=markup,
-                                           parse_mode=ParseMode.HTML).message_id)
-            return callback
+    with db_session.create_session() as session:
+        task_id = context.user_data['queue'][0]
+        task = session.query(Task).get(task_id)
+        if not task:
+            update.message.reply_text(f'Не удалось найти задачу №{task_id}')
+            return menu(update, context)
+        user_attempts = [att for att in task.attempts if att.user_id == context.user_data['id']]
+        buttons = [[InlineKeyboardButton('Вернуться в меню', callback_data='menu')]]
+        if len(context.user_data['queue']) > 1:
+            buttons[0].append(InlineKeyboardButton('Пропустить задачу', callback_data='skip_task'))
+        if user_attempts:
+            while len(user_attempts) > 1:
+                attempt = user_attempts.pop(0)
+                session.delete(attempt)
+                session.commit()
+            attempt = user_attempts[0]
+            if attempt.correct:
+                task_prefix = '✅'
+                task_suffix = f'\n\n<b>Ответ:</b> {attempt.answer}' if context.user_data.get('show_answer') else ''
+            else:
+                task_prefix = '❌'
+                task_suffix = f'\n\n<b>Последний ответ:</b> {attempt.answer}'
+                if context.user_data.get('show_answer'):
+                    task_suffix += f'\n<b>Правильный ответ:</b> {task.answer}'
+            if context.user_data.get('show_answer'):
+                answer_btn_text, callback_data = 'Скрыть правильный ответ', 'hide_answer'
+            else:
+                answer_btn_text, callback_data = 'Показать правильный ответ', 'show_answer'
+            buttons.append([InlineKeyboardButton(answer_btn_text, callback_data=callback_data)])
         else:
-            context.user_data['delete_on_reload'].append(
-                [msg.message_id for msg in
-                 update.message.reply_media_group([InputMediaPhoto(img) for img in images])])
-    context.user_data['delete_on_reload'].append(
-        update.message.reply_text(text, reply_markup=markup, parse_mode=ParseMode.HTML).message_id)
+            task_prefix, task_suffix = '', ''
+        print(context.user_data)
+        text = (f"{task_prefix} <b>Задание {task.number if task.number != 999 else 'прошлых лет'} "
+                f"№{task.id}</b>\n{task.description} {task_suffix}")
+        markup = InlineKeyboardMarkup(buttons)
+        if not context.user_data.get('delete_on_reload'):
+            context.user_data['delete_on_reload'] = []
+        if task.images:
+            images = task.images.split(';')
+            if len(images) == 1:
+                context.user_data['delete_on_reload'].append(
+                    context.bot.send_photo(context.user_data['id'], images[0], text, reply_markup=markup,
+                                           parse_mode=ParseMode.HTML).message_id)
+                return callback
+            else:
+                context.user_data['delete_on_reload'].append(
+                    [msg.message_id for msg in
+                     context.bot.send_media_group(context.user_data['id'],
+                                                  [InputMediaPhoto(img) for img in images])])
+        context.user_data['delete_on_reload'].append(
+            context.bot.send_message(context.user_data['id'], text,
+                                     reply_markup=markup, parse_mode=ParseMode.HTML).message_id)
     print(f'{context.user_data["delete_on_reload"]=}')
     return callback
 
@@ -52,9 +78,23 @@ def check_answer(update: Update, context: CallbackContext):
                           correct=answer == task.answer)
         session.add(attempt)
         session.commit()
-        clean_messages()
-        # update.message.reply_text('OK' if answer == task.answer else 'Wrong answer')
-    context.user_data['queue'].pop(0)
-    if context.user_data['queue']:
-        return show_task(update, context)
-    return menu(update, context)
+        clean_messages(context)
+        # if attempt.correct:
+        #     context.user_data['task_prefix'] = '✅'
+        #     context.user_data['task_suffix'] = f'\n\n<b>Ответ:</b> {answer}'
+        # else:
+        #     context.user_data['task_prefix'] = '❌'
+        #     context.user_data['task_suffix'] = f'\n\n<b>Последний ответ:</b> {answer}'
+    return show_task(update, context)
+
+
+def show_answer(_, context: CallbackContext):
+    context.user_data['show_answer'] = True
+    clean_messages(context)
+    return show_task(_, context)
+
+
+def hide_answer(_, context: CallbackContext):
+    context.user_data['show_answer'] = False
+    clean_messages(context)
+    return show_task(_, context)

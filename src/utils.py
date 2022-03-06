@@ -49,7 +49,8 @@ def save_state(user_id: int, callback: str, data: dict):
 
 
 def clean_messages(context: CallbackContext):
-    for message_id in context.user_data.get('delete_on_reload', []):
+    while context.user_data.get('delete_on_reload', []):
+        message_id = context.user_data['delete_on_reload'].pop(0)
         try:
             context.bot.delete_message(context.user_data['id'], message_id)
         except BadRequest as e:

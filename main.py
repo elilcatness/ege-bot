@@ -8,7 +8,7 @@ from telegram.ext import (Updater, CommandHandler, CallbackContext, Conversation
 
 from src.db.models.state import State
 from src.db.models.task import Task
-from src.show import check_answer
+from src.show import check_answer, show_answer, hide_answer
 from src.general import menu
 from src.parse import get_tasks_by_number
 from src.search import ask_task_id, search_task
@@ -54,7 +54,10 @@ def main():
         states={
             'menu': [CallbackQueryHandler(ask_task_id, pattern='search')],
             'ask_task_id': [MessageHandler((~Filters.command) & Filters.text, search_task)],
-            'show_task': [MessageHandler((~Filters.command) & Filters.text, check_answer)]
+            'show_task': [MessageHandler((~Filters.command) & Filters.text, check_answer),
+                          CallbackQueryHandler(show_answer, pattern='show_answer'),
+                          CallbackQueryHandler(hide_answer, pattern='hide_answer'),
+                          CallbackQueryHandler(menu, pattern='menu')]
         },
         fallbacks=[CommandHandler('start', menu)]
     )

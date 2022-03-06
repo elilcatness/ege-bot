@@ -12,5 +12,5 @@ class Attempt(SqlAlchemyBase):
     task_id = Column(Integer, ForeignKey('tasks.id'))
     task = relationship('Task', foreign_keys=task_id)
     user_id = Column(Integer, ForeignKey('users.id'))
-    user = relationship('User', foreign_keys=user_id)
+    user = relationship('User', foreign_keys=user_id, back_populates='attempts')
     correct = Column(Boolean)

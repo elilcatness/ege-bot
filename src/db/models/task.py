@@ -13,6 +13,7 @@ class Task(SqlAlchemyBase):
     answer = Column(String)
     images = Column(String, nullable=True)
     users = relationship('User', secondary='task_to_user')
+    attempts = relationship('Attempt')
 
     def __str__(self):
         return f'Задание типа {self.number} №{self.id}'
