@@ -48,6 +48,14 @@ def save_state(user_id: int, callback: str, data: dict):
         session.commit()
 
 
+def clean_messages(context: CallbackContext):
+    for message_id in context.user_data.get('delete_on_reload', []):
+        try:
+            context.bot.delete_message(context.user_data['id'], message_id)
+        except BadRequest as e:
+            print(f'Failed to delete message {message_id}: {e}')
+
+
 def _get_response(url: str, **kwargs):
     if 'headers' not in map(str.lower, kwargs.keys()):
         kwargs['headers'] = HEADERS

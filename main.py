@@ -8,20 +8,21 @@ from telegram.ext import (Updater, CommandHandler, CallbackContext, Conversation
 
 from src.db.models.state import State
 from src.db.models.task import Task
-from src.db.show import check_answer
+from src.show import check_answer
 from src.general import menu
 from src.parse import get_tasks_by_number
 from src.search import ask_task_id, search_task
 
 
-def process(context: CallbackContext):
+def load_data(_):
     with db_session.create_session() as session:
         for n in range(1, 28):
-            task_dict = get_tasks_by_number(n)
-            for task_d in task_dict:
-                task: Task = session.query(Task).get(task_d['id'])
+            tasks = get_tasks_by_number(n)
+            for task_d in tasks[::-1]:
+                task = session.query(Task).get(task_d['id'])
                 if not task:
-                    session.add(Task(**task_d))
+                    task = Task(**task_d)
+                    session.add(task)
                     session.commit()
                 else:
                     if task.description != task_d['description']:
@@ -30,9 +31,12 @@ def process(context: CallbackContext):
                         task.answer = task_d['answer']
                     session.add(task)
                     session.commit()
+                print(task)
 
 
 def load_states(updater: Updater, conv_handler: ConversationHandler):
+    # context = CallbackContext(updater.dispatcher)
+    # context.job_queue.run_once(load_data, 0)
     with db_session.create_session() as session:
         for state in session.query(State).all():
             conv_handler._conversations[(

@@ -61,3 +61,4 @@ def get_tasks_by_number(number: int):
     categories = _find_categories(number)
     suffix = '&' + '&'.join([f'cat{cat_id}=on' for cat_id in categories])
     doc = get_doc(ALL_TEMPLATE % number + suffix)
+    return _parse_tasks_page(doc, number)
