@@ -20,7 +20,7 @@ def show_task(update: Update, context: CallbackContext):
         user_attempts = [att for att in task.attempts if att.user_id == context.user_data['id']]
         buttons = [[InlineKeyboardButton('Вернуться в меню', callback_data='menu')]]
         if len(context.user_data['queue']) > 1:
-            buttons[0].append(InlineKeyboardButton('Пропустить задачу', callback_data='skip_task'))
+            buttons[0].append(InlineKeyboardButton('Следующая задача', callback_data='next_task'))
         print(f'{user_attempts=}')
         if user_attempts:
             while len(user_attempts) > 1:
@@ -63,7 +63,6 @@ def show_task(update: Update, context: CallbackContext):
         context.user_data['delete_on_reload'].append(
             context.bot.send_message(context.user_data['id'], text,
                                      reply_markup=markup, parse_mode=ParseMode.HTML).message_id)
-    print(f'{context.user_data["delete_on_reload"]=}')
     return callback
 
 
@@ -93,3 +92,7 @@ def hide_answer(_, context: CallbackContext):
     context.user_data['show_answer'] = False
     clean_messages(context)
     return show_task(_, context)
+
+
+def get_next_task(_, context: CallbackContext):
+    pass
